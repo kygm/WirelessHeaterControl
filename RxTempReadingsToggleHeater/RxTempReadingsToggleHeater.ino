@@ -103,7 +103,7 @@ void setup() {
 void loop() {
  
   outgoingHeaterPayload.StartHeater = startHeaterCommanded;
-  
+
   // Send message via ESP-NOW
   esp_err_t result = esp_now_send(macAddrToSendMsgTo, (uint8_t *) &outgoingHeaterPayload, sizeof(outgoingHeaterPayload));
    
@@ -119,7 +119,7 @@ void loop() {
 
 
 void updateDisplay(){
-  // Display Readings on OLED Display
+
   display.clearDisplay();
   display.setTextSize(1);
   display.setTextColor(WHITE);
@@ -147,16 +147,4 @@ void updateDisplay(){
   display.print(startHeaterCommanded);
   display.display();
   
-  // Display Readings in Serial Monitor
-  // Serial.println("INCOMING READINGS");
-  // Serial.print("Temperature: ");
-  // Serial.print(incomingReadings.temp);
-  // Serial.println(" ºC");
-  // Serial.print("Humidity: ");
-  // Serial.print(incomingReadings.hum);
-  // Serial.println(" %");
-  // Serial.print("Pressure: ");
-  // Serial.print(incomingReadings.pres);
-  // Serial.println(" hPa");
-  // Serial.println();
 }

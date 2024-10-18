@@ -3,9 +3,6 @@
 
 #include <esp_now.h>
 #include <WiFi.h>
-#include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
 #include "/home/leperry/Desktop/Arduino/DogStatus/HeaterPayload.h"
 //Arduino IDE limitation - relative pathing does not work for files outside of the directory of 
 //the sketch :(
@@ -18,7 +15,6 @@ using namespace std;
 //Definition of screen for debug purposes in the field
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
 HeaterPayload outgoingHeaterPayload;
 HeaterPayload incomingHeaterPayload;
@@ -54,31 +50,20 @@ void setup()
   Serial.begin(115200);
 
   pinMode(HEATER_RELAY_PIN, OUTPUT);
-
-  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3D for 128x64
-    Serial.println(F("SSD1306 allocation failed"));
-    for(;;);
-  }
  
-  // Set device as a Wi-Fi Station
-  WiFi.mode(WIFI_STA);
 
-  // Init ESP-NOW
+  WiFi.mode(WIFI_STA);
   if (esp_now_init() != ESP_OK) {
     Serial.println("Error initializing ESP-NOW");
     return;
   }
 
-  // Once ESPNow is successfully Init, we will register for Send CB to
-  // get the status of Transmitted packet
   esp_now_register_send_cb(OnDataSent);
   
-  // Register peer
   memcpy(peerInfo.peer_addr, macAddrToSendMsgTo, 6);
   peerInfo.channel = 0;  
   peerInfo.encrypt = false;
   
-  // Add peer        
   if (esp_now_add_peer(&peerInfo) != ESP_OK){
     Serial.println("Failed to add peer");
     return;
@@ -110,6 +95,8 @@ void loop() {
   Serial.println(tempf, 2);
 
   outgoingHeaterPayload.Temperature = (double)tempf;
+  outgoingHeaterPayload.IsHeaterRunning = commandHeaterOn;
+  outgoingHeaterPayload.StartHeater = incomingHeaterPayload.StartHeater; //Just so the oled output is correct on the RX device
 
   esp_err_t result = esp_now_send(macAddrToSendMsgTo, (uint8_t *) &outgoingHeaterPayload, sizeof(outgoingHeaterPayload));
 
