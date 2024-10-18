@@ -15,6 +15,9 @@
 // Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
+const uint8_t BUTTON_PIN = 12;
+bool startHeaterCommanded = false;
+
 
 uint8_t macAddrToSendMsgTo[] = {0xD4, 0x8A, 0xFC, 0xA5, 0xEA, 0xEC};
 
@@ -52,11 +55,18 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
 
   Serial.print("Rx success! \n");
 }
+
+void TOGGLE_HEATER_START_ISR()
+{
+  startHeaterCommanded = !startHeaterCommanded;
+}
  
 void setup() {
   // Init Serial Monitor
   Serial.begin(115200);
 
+  pinMode(BUTTON_PIN, INPUT);
+  attachInterrupt(BUTTON_PIN, TOGGLE_HEATER_START_ISR, RISING);
   // Init OLED display
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { 
     Serial.println(F("SSD1306 allocation failed"));
@@ -92,7 +102,7 @@ void setup() {
  
 void loop() {
  
-  outgoingHeaterPayload.StartHeater = true;
+  outgoingHeaterPayload.StartHeater = startHeaterCommanded;
 
   // Send message via ESP-NOW
   esp_err_t result = esp_now_send(macAddrToSendMsgTo, (uint8_t *) &outgoingHeaterPayload, sizeof(outgoingHeaterPayload));
@@ -104,7 +114,7 @@ void loop() {
     Serial.println("Error sending the data");
   }
   updateDisplay();
-  delay(10000);
+  delay(1000);
 }
 
 
@@ -133,7 +143,8 @@ void updateDisplay(){
   display.print(incomingHeaterPayload.StartHeater);
 
   display.setCursor(0, 56);
-  display.print("KYGM Services LLC");
+  display.print("Cmd Heater? ");
+  display.print(startHeaterCommanded);
   display.display();
   
   // Display Readings in Serial Monitor
