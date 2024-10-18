@@ -20,9 +20,13 @@ using namespace std;
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
-HeaterPayload heaterPayload;
+HeaterPayload outgoingHeaterPayload;
+HeaterPayload incomingHeaterPayload;
 
 dht11 DHT11;
+
+const uint8_t HEATER_RELAY_PIN = 5;
+bool commandHeaterOn = false;
 
 esp_now_peer_info_t peerInfo;
 //B4 addr: E4:65:B8:25:41:B4
@@ -33,13 +37,23 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status)
 {
   Serial.print("\r\nLast Packet Send Status:\t");
   Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
-  Serial.print("\nSent to: ");
-  Serial.print("mac_addr");
+}
+
+// Callback when data is received
+void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
+  memcpy(&incomingHeaterPayload, incomingData, sizeof(incomingHeaterPayload));
+
+  Serial.println(incomingHeaterPayload.StartHeater);
+  commandHeaterOn = incomingHeaterPayload.StartHeater;
+
+  Serial.print("Rx success! \n");
 }
 
 void setup() 
 {
   Serial.begin(115200);
+
+  pinMode(HEATER_RELAY_PIN, OUTPUT);
 
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3D for 128x64
     Serial.println(F("SSD1306 allocation failed"));
@@ -69,44 +83,37 @@ void setup()
     Serial.println("Failed to add peer");
     return;
   }
+
+  // Register for a callback function that will be called when data is received
+  esp_now_register_recv_cb(esp_now_recv_cb_t(OnDataRecv));
 }
 
 void loop() {
+  //First handle rx data
+  if(commandHeaterOn)
+  {
+    digitalWrite(HEATER_RELAY_PIN, HIGH);
+    Serial.println("Commanded high");
+  }
+  else
+  {
+    digitalWrite(HEATER_RELAY_PIN, LOW);
+    Serial.println("Commanded low");
+  }
+
   //Read the DHT11 sensor first:
   int discard = DHT11.read(DHT11PIN);
 
   float tempf = ((float)DHT11.temperature * 1.8)+32;
 
-  Serial.print("Temp in f: ");
+  Serial.print("Tempf sent: ");
   Serial.println(tempf, 2);
-  char* messageOnOled;
-  heaterPayload.Temperature = (double)tempf;
 
-  esp_err_t result = esp_now_send(macAddrToSendMsgTo, (uint8_t *) &heaterPayload, sizeof(heaterPayload));
+  outgoingHeaterPayload.Temperature = (double)tempf;
 
+  esp_err_t result = esp_now_send(macAddrToSendMsgTo, (uint8_t *) &outgoingHeaterPayload, sizeof(outgoingHeaterPayload));
 
-  //messageOnOledStr = string("Temp c: ") + (float)DHT11.temperature string("\nHumidity: ") + (float)DHT11.humidity;
-  
-  //formatMessage((float)DHT11.temperature, (float)DHT11.humidity, messageOnOled, sizeof(messageOnOled));
-
-  printTextOnFirstLine(messageOnOled);
   delay(500);
-}
-
-void formatMessage(float value1, float value2, char* messageBase, size_t bufferSize) {
-  snprintf(messageBase, bufferSize, "Temperature F: %.2f, Humidity: %.2f", value1, value2);
-}
-
-void printTextOnFirstLine(const char* text)
-{
-  display.clearDisplay();
-
-  display.setTextSize(1);
-  display.setTextColor(WHITE);
-  display.setCursor(1, 10);
-  // Display static text
-  display.println(text);
-  display.display();
 }
 
 

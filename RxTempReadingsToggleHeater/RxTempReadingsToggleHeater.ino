@@ -103,7 +103,7 @@ void setup() {
 void loop() {
  
   outgoingHeaterPayload.StartHeater = startHeaterCommanded;
-
+  
   // Send message via ESP-NOW
   esp_err_t result = esp_now_send(macAddrToSendMsgTo, (uint8_t *) &outgoingHeaterPayload, sizeof(outgoingHeaterPayload));
    
